@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Card Game</title>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Kreon:wght@400;500;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href = "style.css">
+    </head>
+    <body>
+        <div id="playspace">
+
+            <!--draw pile-->
+            <div id="draw-pile">
+                <p id="health-text">Health: X</p>
+                <button id="end-turn-button">End Turn</button>
+                <p id="draw-text">DRAW PILE</p>
+                <div id="draw-mat" class="mat"></div>
+            </div>
+
+            <!--discard pile-->
+            <div id="discard-pile">
+                <p id="discard-text">DISCARD PILE</p>
+                <div id="discard-mat" class="mat"></div>
+            </div>
+
+            <!--hand section-->
+            <div id="hand-section">
+
+            </div>
+
+            <!--enemy spot-->
+            <div id="enemy-space">
+            </div>
+
+            <!--enemy
+            <div class="enemy">
+                <p class="enemy-name">Name</p>
+            </div>
+            -->
+
+            <!--card
+            <div class="card">
+                <p class="card-name">Name</p>
+                <p class="card-body">Deal 10 damage to target foe.</p>
+            </div>
+            -->
+
+        </div>
+
+        <div id="testEl"></div>
+        <script src="script.js"></script>
+    </body>
+</html>
