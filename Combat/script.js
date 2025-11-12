@@ -1,63 +1,4 @@
-//contains all information for card stats
-class Card
-{
-    /*
-        possible targets:
-            "one_enemy"
-            "all_enemies"
-            "self"
-    */
-    constructor(name, description, burnCost, target, damage)
-    {
-        this.name = name;
-        this.burnCost = burnCost;
-        
-        //card stats
-        this.target = target;
-        this.damage = damage;
-
-        if(description == "*"){
-            this.createDescription();
-        }else{
-            this.description = description;
-        }
-    }
-
-    createDescription()
-    {
-        this.description = "";
-        if(this.damage > 0){
-            this.description += "Deal " + this.damage + " damage. ";
-        }
-    }
-}
-
-//holds the burn cost, and a way to get the indices of the cards to burn
-class BurnCost
-{
-    //burnString gives the indices representing which cards are discarded when a card is played
-    //[-2, -1, 0, 1, 2] - burn the card 2 to the left, 1 to the left, the card itself, 1 to the right, and 2 to the right
-    constructor(burnArray)
-    {
-        this.burnArray = burnArray;
-    }
-
-    //either returns the indicies to burn when a card is played, or null when the card cannot be played
-    getIndicesToBurn(indexInHand, handLength)
-    {
-        const arrayCopy = [...this.burnArray];
-        for(let i = 0; i < arrayCopy.length; i++){
-            arrayCopy[i] += indexInHand;
-
-            //exit early when card cannot be played, insufficient cost
-            if(arrayCopy[i] < 0 || arrayCopy[i] >= handLength)
-            {
-                return null;
-            }
-        }
-        return arrayCopy;
-    }
-}
+import { PlayerStats, Card, BurnCost } from '../src/playInfo.js';
 
 //stores card element, card stats, and position data
 class CardObj
@@ -77,7 +18,7 @@ class CardObj
 
         //add listeners
         this.cardEl.addEventListener('mousedown', mouseDownOnCard);
-        this.cardEl.addEventListener('mouseover', onCardHover);
+        this.cardEl.addEventListener('mouseover', mouseHoverOnCard);
         this.card = card;
         
         //movement position information
@@ -100,11 +41,11 @@ class CardObj
 
 class Player
 {
-    constructor(name, health)
+    constructor(name, maxHealth, currHealth)
     {
         this.name = name;
-        this.maxHealth = health;
-        this.currHealth = health;
+        this.maxHealth = maxHealth;
+        this.currHealth = currHealth;
 
         //elements
         this.healthText = document.getElementById("health-text");
@@ -214,7 +155,6 @@ class EnemyObj
     }
 }
 
-
 const playspace = document.getElementById("playspace");
 const drawMat = document.getElementById("draw-mat");
 const discardMat = document.getElementById("discard-mat");
@@ -249,9 +189,9 @@ let deck = [
 ]
 let discardPile = []
 let enemyEncounter = [
-    new Enemy("Mr. Bumbling", 10, [new EnemyAction("Attack", 2)]),
-    new Enemy("Bobby the Trout", 8, [new EnemyAction("Attack", 3)]),
-    new Enemy("Mr. Bumbling", 10, [new EnemyAction("Attack", 4)])
+    new Enemy("Mr. Bumbling", 1, [new EnemyAction("Attack", 2)]),
+    new Enemy("Bobby the Trout", 1, [new EnemyAction("Attack", 3)]),
+    new Enemy("Mr. Bumbling", 1, [new EnemyAction("Attack", 4)])
 ]
 
 //array of enemy objects
@@ -266,7 +206,7 @@ let isPlayerTurn = true;
 let isPlayerDefending = false;
 
 //hover over each card while in hand
-function onCardHover(e)
+function mouseHoverOnCard(e)
 {
     //get selected card
     const cardEl = e.target.closest('.card');
@@ -310,7 +250,7 @@ function onCardHover(e)
 
             //set listeners
             selectedCard.canBePlayed = true;
-            cardEl.addEventListener('mouseout', mouseUpOnCard);
+            cardEl.addEventListener('mouseout', mouseOutOnCard);
         }
     }
 }
@@ -332,7 +272,7 @@ function mouseOutOnCard()
         cardEl.style.left = `${selectedCard.handposX}px`;
         cardEl.style.top = `${selectedCard.handposY}px`;
         cardEl.style.transform = `rotate(${selectedCard.handRotation}deg)`;
-        cardEl.style.transition = 'top 0.75s ease-in-out, left 0.75s ease-in-out, transform 0.75s ease-in-out';
+        cardEl.style.transition = 'top 0.5s ease-in-out, left 0.5s ease-in-out, transform 0.5s ease-in-out';
 
         //cleanup
         SetCardHoverForUnselected(true);
@@ -370,7 +310,7 @@ function mouseDownOnCard(e)
         SetCardHoverForUnselected(false);
         document.addEventListener('mousemove', mouseMoveOnCard);
         document.addEventListener('mouseup', mouseUpOnCard);
-        cardEl.removeEventListener('mouseover', onCardHover);
+        cardEl.removeEventListener('mouseover', mouseHoverOnCard);
         cardEl.removeEventListener('mouseout', mouseOutOnCard);
 
     }
@@ -450,7 +390,7 @@ function mouseUpOnCard(e)
             cardEl.style.left = `${selectedCard.handposX}px`;
             cardEl.style.top = `${selectedCard.handposY}px`;
             cardEl.style.transform = `rotate(${selectedCard.handRotation}deg)`;
-            cardEl.style.transition = 'top 0.75s ease-in-out, left 0.75s ease-in-out, transform 0.75s ease-in-out';
+            cardEl.style.transition = 'top 0.5s ease-in-out, left 0.5s ease-in-out, transform 0.5s ease-in-out';
             
             //set listeners
             document.removeEventListener('mousemove', mouseMoveOnCard);
@@ -546,7 +486,7 @@ function cardTransitionStart(e)
 {
     console.log("START");
     e.removeEventListener('mouseup', mouseUpOnCard);
-    e.removeEventListener('mouseover', onCardHover);
+    e.removeEventListener('mouseover', mouseHoverOnCard);
     e.removeEventListener('mousedown', mouseDownOnCard);
 }
 
@@ -554,7 +494,7 @@ function cardTransitionStart(e)
 function cardTransitionEnd(e)
 {
     e.addEventListener('mousedown', mouseDownOnCard);
-    e.addEventListener('mouseover', onCardHover);
+    e.addEventListener('mouseover', mouseHoverOnCard);
 }
 
 //either listen or do not listen for all cards except the selected one
@@ -563,9 +503,9 @@ function SetCardHoverForUnselected(enable)
     for(let i = 0; i < hand.length; i++){
         if(hand[i] != selectedCard){
             if(enable){
-                hand[i].cardEl.addEventListener('mouseover', onCardHover);
+                hand[i].cardEl.addEventListener('mouseover', mouseHoverOnCard);
             }else{
-                hand[i].cardEl.removeEventListener('mouseover', onCardHover);
+                hand[i].cardEl.removeEventListener('mouseover', mouseHoverOnCard);
             }
         }
     }
@@ -575,6 +515,7 @@ function SetCardHoverForUnselected(enable)
 function drawFromDeck(numCards)
 {
     let remainingCards = numCards;
+    let delay = 0;
     while(remainingCards > 0 && !(deck.length == 0 && discardPile.length == 0))
     {
         //shuffle discard pile into deck when deck is empty and discard pile is not
@@ -589,8 +530,10 @@ function drawFromDeck(numCards)
 
         //reform to the hand
         hand.unshift(cardObj);
+        cardTransitionStart(cardObj.cardEl);
+        setTimeout(cardTransitionEnd, 900, cardObj.cardEl);
         setTimeout(reformatHand, 500);
-
+        
         remainingCards--;
     }
 }
@@ -696,7 +639,7 @@ function destroyEnemy(enemyObj)
 function instantiateCard(card, xPos, yPos)
 {
     //wrap in CardObj
-    cardObj = new CardObj(card, xPos, yPos);
+    let cardObj = new CardObj(card, xPos, yPos);
     cardObjs.set(cardObj.cardEl, cardObj);
     handSection.appendChild(cardObj.cardEl);
     return cardObj;
@@ -705,7 +648,7 @@ function instantiateCard(card, xPos, yPos)
 function instantiateEnemy(enemy, xPos, yPos)
 {
     //wrap in EnemyObj
-    enemyObj = new EnemyObj(enemy, xPos, yPos);
+    let enemyObj = new EnemyObj(enemy, xPos, yPos);
     enemyObjs.set(enemyObj.enemyEl, enemyObj);
     enemySpace.appendChild(enemyObj.enemyEl);
     return enemyObj
@@ -738,7 +681,7 @@ function setNextEnemyActions()
 function startBattle()
 {   
     //create enemies
-    player = new Player("Player Name", 20);
+    readPlayerValues();
     createEnemies();
     startPlayerTurn();
     window.addEventListener('resize', reformatHand);
@@ -798,15 +741,90 @@ function enactEachEnemyAction()
     startPlayerTurn();
 }
 
+//save all values, then move to the card select page
 function winBattle()
 {
-    console.log("YOU WON!");
+    shuffleDiscardPileIntoDeck();
+    writePlayerValues();
+    window.location.href = "../CardSelect/index.html";
+    
 }
 
 function gameOver()
 {
-    console.log("Game over!");
+    shuffleDiscardPileIntoDeck();
+    writePlayerValues();
+    window.location.href = "../GameOver/index.html";
 }
 
+//saves the current player values to local storage
+function writePlayerValues() 
+{
+    if (player != null) 
+    {
+        const playerStats = new PlayerStats(
+        player.name,
+        player.maxHealth,
+        player.currHealth,
+        JSON.stringify(
+            deck.map(card => ({
+            ...card,
+            __type: 'Card',
+            burnCost: card.burnCost
+                ? { ...card.burnCost, __type: 'BurnCost' }
+                : null
+            }))
+        )
+        );
+
+        localStorage.setItem('player-stats', JSON.stringify(playerStats));
+    }
+}
+
+//reads from local storage all the player values
+function readPlayerValues()
+{
+    let playerStatJson = localStorage.getItem('player-stats');
+    if(playerStatJson != null)
+    {
+        let playerStats = JSON.parse(playerStatJson);
+        player = new Player(playerStats.name, playerStats.maxHealth, playerStats.currHealth);
+        deck = JSON.parse(playerStats.deck, cardReviver);
+        console.log(deck);
+    }
+    else
+    {
+        player = new Player("Player Name", 20, 20);
+    }
+}
+
+//tells json parser how to parse card
+function cardReviver(key, value) 
+{
+    if (value && value.__type === 'Card') 
+    {
+        const burnCost = value.burnCost ? burnCostReviver('', value.burnCost) : null;
+        return new Card(value.name, value.description, burnCost, value.target, value.damage);
+    }
+    return value;
+}
+
+//tells json parser how to parse burn cost
+function burnCostReviver(key, value) 
+{
+    if (value && value.__type === 'BurnCost') 
+    {
+        return new BurnCost(value.burnArray);
+    }
+    return value;
+}
+
+//startBattle();
+
+console.log(deck);
+localStorage.clear();
+readPlayerValues();
+writePlayerValues();
 startBattle();
+
 
