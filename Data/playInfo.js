@@ -1,12 +1,13 @@
 //this is used in local storage
 export class PlayerStats
 {
-    constructor(name, maxHealth, currHealth, deck)
+    constructor(name, maxHealth, currHealth, deck, round)
     {
         this.name = name;
         this.maxHealth = maxHealth;
         this.currHealth = currHealth;
         this.deck = deck;
+        this.round = round;
     }
 }  
 
@@ -68,5 +69,69 @@ export class BurnCost
             }
         }
         return arrayCopy;
+    }
+}
+
+//stores card element, card stats, and position data
+export class CardObj
+{
+    constructor(card, startX, startY)
+    {
+        //instantiate card values
+        this.cardEl = document.createElement('div');
+        this.cardEl.setAttribute('class', 'card');
+        this.cardEl.innerHTML = `
+                <p class="card-name">${card.name}</p>
+                <div class="card-image"></div>
+                <p class="card-body">${card.description}</p>
+        `
+        this.cardEl.style.top = startY + 'px';
+        this.cardEl.style.left = startX + 'px';
+        this.card = card;
+        
+        //movement position information
+        this.startX = startX;   
+        this.newX = startX;
+        this.startY = startY;
+        this.newY = startY;
+
+        //hand position information
+        this.handposX = 0;
+        this.handposY = 0;
+        this.handRotation = 0;
+        this.handZPos = 0;
+
+        this.cardGrabbed = false;
+        this.canBePlayed = false;
+        this.canBeHovered = true;
+    }
+}
+
+
+export function parsePlayerStats(playerStatJson)
+{
+    if (playerStatJson != null)
+    {
+        let playerStats = JSON.parse(playerStatJson);
+
+        // rebuild deck
+        playerStats.deck = playerStats.deck.map(cardJson => {
+            // rebuild burn cost first
+            let burnCost = null;
+            if (cardJson.burnCost) {
+                burnCost = new BurnCost(cardJson.burnCost.burnArray);
+            }
+
+            // rebuild the card
+            return new Card(
+                cardJson.name,
+                cardJson.description,
+                burnCost,
+                cardJson.target,
+                cardJson.damage
+            );
+        });
+
+        return playerStats
     }
 }

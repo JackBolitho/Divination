@@ -1,43 +1,5 @@
-import { PlayerStats, Card, BurnCost } from '../src/playInfo.js';
+import { PlayerStats, Card, CardObj, BurnCost, parsePlayerStats } from '../Data/playInfo.js';
 
-//stores card element, card stats, and position data
-class CardObj
-{
-    constructor(card, startX, startY)
-    {
-        //instantiate card values
-        this.cardEl = document.createElement('div');
-        this.cardEl.setAttribute('class', 'card');
-        this.cardEl.innerHTML = `
-                <p class="card-name">${card.name}</p>
-                <div class="card-image"></div>
-                <p class="card-body">${card.description}</p>
-        `
-        this.cardEl.style.top = startY + 'px';
-        this.cardEl.style.left = startX + 'px';
-
-        //add listeners
-        this.cardEl.addEventListener('mousedown', mouseDownOnCard);
-        this.cardEl.addEventListener('mouseover', mouseHoverOnCard);
-        this.card = card;
-        
-        //movement position information
-        this.startX = startX;   
-        this.newX = startX;
-        this.startY = startY;
-        this.newY = startY;
-
-        //hand position information
-        this.handposX = 0;
-        this.handposY = 0;
-        this.handRotation = 0;
-        this.handZPos = 0;
-
-        this.cardGrabbed = false;
-        this.canBePlayed = false;
-        this.canBeHovered = true;
-    }
-}
 
 class Player
 {
@@ -179,14 +141,7 @@ ENEMIES:
 */
 
 //array of cards
-let deck = [
-    new Card("Card 1", "*", new BurnCost([0]), "one_enemy", 1),
-    new Card("Card 2", "*", new BurnCost([0]), "one_enemy", 1),
-    new Card("Card 3 Yeet", "*", new BurnCost([-1, 0, 1]), "one_enemy", 1),
-    new Card("Card 4", "*", new BurnCost([0]), "one_enemy", 1),
-    new Card("Card 5", "*", new BurnCost([0]), "one_enemy", 1),
-    new Card("Card 6", "*", new BurnCost([0]), "one_enemy", 1),
-]
+let deck = []
 let discardPile = []
 let enemyEncounter = [
     new Enemy("Mr. Bumbling", 1, [new EnemyAction("Attack", 2)]),
@@ -201,7 +156,8 @@ let enemies = []
 let hand = []
 
 //game state variables
-let player = null;
+let player = null; //this is mutable
+let playerStats = null; //this is for storage 
 let isPlayerTurn = true;
 let isPlayerDefending = false;
 
@@ -214,8 +170,6 @@ function mouseHoverOnCard(e)
 
     if(selectedCard.canBeHovered)
     {
-        console.log("HOVER");
-
         //set values for hover
         cardEl.style.top = `${selectedCard.handposY - 50}px`;
         cardEl.style.transform = `rotate(${0}deg)`;
@@ -262,8 +216,6 @@ function mouseOutOnCard()
     //set style of picking up card
     if(selectedCard != null)
     {
-        console.log("OUT");
-
         const cardEl = selectedCard.cardEl;
         cardEl.style.setProperty('z-index', selectedCard.handZPos);
         cardEl.style.setProperty('box-shadow', 'none');
@@ -290,8 +242,6 @@ function mouseOutOnCard()
 //allows for clicking on selectedCard
 function mouseDownOnCard(e)
 {
-    console.log("DOWN");
-
     //get selected card information
     const cardEl = e.target.closest('.card');
     if(!cardEl) return;
@@ -346,8 +296,6 @@ function mouseUpOnCard(e)
 {
     if(selectedCard != null)
     {
-        console.log("UP");
-
         //cleanup burn cards
         unmarkAllCardsForBurning();
 
@@ -384,8 +332,6 @@ function mouseUpOnCard(e)
         //otherwise move the card back into the hand
         else
         {
-            console.log("BACK TO HAND!");
-
             //move back to hand
             cardEl.style.left = `${selectedCard.handposX}px`;
             cardEl.style.top = `${selectedCard.handposY}px`;
@@ -484,7 +430,6 @@ function unmarkAllCardsForBurning()
 //disable movement
 function cardTransitionStart(e)
 {
-    console.log("START");
     e.removeEventListener('mouseup', mouseUpOnCard);
     e.removeEventListener('mouseover', mouseHoverOnCard);
     e.removeEventListener('mousedown', mouseDownOnCard);
@@ -540,12 +485,18 @@ function drawFromDeck(numCards)
 
 function shuffleDiscardPileIntoDeck()
 {
-    //TODO: implement actual shuffling
     for(const card of discardPile){
         deck.push(card);
     }
 
     discardPile = [];
+}
+
+function shuffleHandIntoDeck()
+{
+    for(const cardObj of hand){
+        deck.push(cardObj.card);
+    }
 }
 
 //reorganize all card objects in the hand list
@@ -640,6 +591,11 @@ function instantiateCard(card, xPos, yPos)
 {
     //wrap in CardObj
     let cardObj = new CardObj(card, xPos, yPos);
+
+    //add listeners
+    cardObj.cardEl.addEventListener('mousedown', mouseDownOnCard);
+    cardObj.cardEl.addEventListener('mouseover', mouseHoverOnCard);
+
     cardObjs.set(cardObj.cardEl, cardObj);
     handSection.appendChild(cardObj.cardEl);
     return cardObj;
@@ -675,30 +631,14 @@ function setNextEnemyActions()
     }
 }
 
-
-//call this function at the start of each battle, it draws 5 cards, sets player turn to true, 
-//subscribes to end turn button, and instantiates all enemies
-function startBattle()
-{   
-    //create enemies
-    readPlayerValues();
-    createEnemies();
-    startPlayerTurn();
-    window.addEventListener('resize', reformatHand);
-}
-
 function startPlayerTurn()
 {
-    console.log("DECK SIZE: " + deck.length + "  DISCARD SIZE: " + discardPile.length + " HAND SIZE: " + hand.length);
-
     isPlayerTurn = true;
     isPlayerDefending = false;
     drawFromDeck(5);
     endTurnButton.innerText = "End Turn";
     endTurnButton.addEventListener("mousedown", endPlayerTurn);
     setNextEnemyActions();
-
-    console.log("DECK SIZE: " + deck.length + "  DISCARD SIZE: " + discardPile.length + " HAND SIZE: " + hand.length);
 }
 
 function endPlayerTurn()
@@ -745,16 +685,34 @@ function enactEachEnemyAction()
 function winBattle()
 {
     shuffleDiscardPileIntoDeck();
+    shuffleHandIntoDeck();
     writePlayerValues();
     window.location.href = "../CardSelect/index.html";
-    
 }
 
 function gameOver()
 {
     shuffleDiscardPileIntoDeck();
+    shuffleHandIntoDeck();
     writePlayerValues();
     window.location.href = "../GameOver/index.html";
+}
+
+//call this function at the start of each battle, it draws 5 cards, sets player turn to true, 
+//subscribes to end turn button, and instantiates all enemies
+function startBattle()
+{   
+    let playerStatJson = localStorage.getItem('player-stats');
+    if(playerStatJson == null)
+    {
+        initializePlayer();
+        writePlayerValues();
+    }
+
+    readPlayerValues();
+    createEnemies();
+    startPlayerTurn();
+    window.addEventListener('resize', reformatHand);
 }
 
 //saves the current player values to local storage
@@ -762,21 +720,11 @@ function writePlayerValues()
 {
     if (player != null) 
     {
-        const playerStats = new PlayerStats(
-        player.name,
-        player.maxHealth,
-        player.currHealth,
-        JSON.stringify(
-            deck.map(card => ({
-            ...card,
-            __type: 'Card',
-            burnCost: card.burnCost
-                ? { ...card.burnCost, __type: 'BurnCost' }
-                : null
-            }))
-        )
-        );
-
+        playerStats = new PlayerStats(player.name, player.maxHealth, player.currHealth, deck, 0);
+        localStorage.setItem('player-stats', JSON.stringify(playerStats));
+    }
+    else
+    {
         localStorage.setItem('player-stats', JSON.stringify(playerStats));
     }
 }
@@ -785,46 +733,36 @@ function writePlayerValues()
 function readPlayerValues()
 {
     let playerStatJson = localStorage.getItem('player-stats');
-    if(playerStatJson != null)
+    if (playerStatJson != null)
     {
-        let playerStats = JSON.parse(playerStatJson);
-        player = new Player(playerStats.name, playerStats.maxHealth, playerStats.currHealth);
-        deck = JSON.parse(playerStats.deck, cardReviver);
-        console.log(deck);
-    }
-    else
-    {
-        player = new Player("Player Name", 20, 20);
+        playerStats = parsePlayerStats(playerStatJson);
+
+        // rebuild player
+        player = new Player(
+            playerStats.name,
+            playerStats.maxHealth,
+            playerStats.currHealth
+        );
+
+        deck = playerStats.deck;
     }
 }
 
-//tells json parser how to parse card
-function cardReviver(key, value) 
+function initializePlayer()
 {
-    if (value && value.__type === 'Card') 
-    {
-        const burnCost = value.burnCost ? burnCostReviver('', value.burnCost) : null;
-        return new Card(value.name, value.description, burnCost, value.target, value.damage);
-    }
-    return value;
+    let startingDeck = 
+    [
+        new Card("Card 1", "*", new BurnCost([0]), "one_enemy", 1),
+        new Card("Card 2", "*", new BurnCost([0]), "one_enemy", 1),
+        new Card("Card 3 Yeet", "*", new BurnCost([-1, 0, 1]), "one_enemy", 1),
+        new Card("Card 4", "*", new BurnCost([0]), "one_enemy", 1),
+        new Card("Card 5", "*", new BurnCost([0]), "one_enemy", 1),
+        new Card("Card 6", "*", new BurnCost([0]), "one_enemy", 1),
+    ];
+    playerStats = new PlayerStats("My Name", 20, 20, startingDeck, 0);
 }
 
-//tells json parser how to parse burn cost
-function burnCostReviver(key, value) 
-{
-    if (value && value.__type === 'BurnCost') 
-    {
-        return new BurnCost(value.burnArray);
-    }
-    return value;
-}
 
-//startBattle();
-
-console.log(deck);
-localStorage.clear();
-readPlayerValues();
-writePlayerValues();
 startBattle();
 
 
